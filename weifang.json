@@ -1,0 +1,67 @@
+{
+    "thread": 1,
+    "name": "weifang_shop",
+    "collection": "weifang_shop",
+    "filter": {
+        "type": "simple",
+        "store": "weifang_shop&meishi&filter"
+    },
+    "seed": {
+        "init": {
+            "seeds": [{
+                "url": "https://restapi.amap.com/v3/config/district?key=0666183719f5673708205261ee10dcc3&keywords=潍坊",
+                "processor": "getPoint"
+            }]
+        }
+    },
+    "queue": {
+        "suport_priority": true,
+        "delay":1000
+    },
+    "processors": [
+        {
+            "index": "getPoint",
+            "page_context": {
+                "city_points": {
+                    "_array":"json(districts.[0].districts)",
+                    "longitude": "json(center) string([^,]+)",
+                    "latitude":"json(center) string(,([^,]+))"
+                }
+            },
+            "crawler_request": [
+                {
+                    "_foreach": "city_points",
+                    "url": "http://m.amap.com/service/poi/longlat.json?pagenum=1&user_loc={{.longitude}}%2C{{.latitude}}&longitude={{.longitude}}&latitude={{.latitude}}&city=&notsort=true&cluster_state=5&client_network_class=4&keywords=%E7%BE%8E%E9%A3%9F&classify_data=query_type%3Drqbxy%3Brange%3D2000%3Bis_uma%3Dtrue%3Bcur_adcode%3D110000%2Bfilter_keywords%3D%E7%BE%8E%E9%A3%9F%2Bsort_rule%3D0%3Breserved_keywords%3Dtrue&uuid=1dccc8e4-d71c-4ba5-ba2e-b80ec29eea11",
+                    "processor": "meishi_list",
+                    "priority": 2
+                }
+            ]
+        },
+        {
+            "index": "meishi_list",
+            "crawler_request": [
+                {
+                    "_condition":"{{gt 100 .pagenum}}",
+                    "url": "http://m.amap.com/service/poi/longlat.json?pagenum={{sum .pagenum 1}}&user_loc={{.longitude}}%2C{{.latitude}}&longitude={{.longitude}}&latitude={{.latitude}}&city=&notsort=true&cluster_state=5&client_network_class=4&keywords=%E7%BE%8E%E9%A3%9F&classify_data=query_type%3Drqbxy%3Brange%3D2000%3Bis_uma%3Dtrue%3Bcur_adcode%3D110000%2Bfilter_keywords%3D%E7%BE%8E%E9%A3%9F%2Bsort_rule%3D0%3Breserved_keywords%3Dtrue&uuid=1dccc8e4-d71c-4ba5-ba2e-b80ec29eea11",
+                    "processor": "meishi_list",
+                    "priority": 3
+                }
+            ],
+            "crawler_data":[
+                {
+                    "_array":"json(poi_list)",
+                    "id":"json(id)",
+                    "rating":"json(rating)",
+                    "tel":"json(tel)",
+                    "name":"json(disp_name)",
+                    "cityname":"json(cityname)",
+                    "address":"json(address)",
+                    "distance":"json(distance)",
+                    "shangquan":"json(domain_list.(id='1010').[0].value)",
+                    "tag":"json(domain_list.(id='1006').[0].value) > htmlText",
+                    "price":"json(domain_list.(id='1001').[0].value) > htmlText"
+                }
+            ]
+        }
+    ]
+}

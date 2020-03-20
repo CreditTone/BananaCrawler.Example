@@ -1,0 +1,122 @@
+{
+    "thread": 10,
+    "name": "meituan_shop",
+    "collection": "meituan_shop",
+    "downloader": "firefox;http://10.2.60.178:4444/wd/hub",
+    "filter": {
+        "type": "simple",
+        "store": "meituan_shop&meishi&filter"
+    },
+    "seed": {
+        "init": {
+            "seeds": [{
+                "url": "https://wf.meituan.com",
+                "processor": "first"
+            }]
+        }
+    },
+    "queue": {
+        "suport_priority": true
+    },
+    "processors": [
+        {
+            "index": "first",
+            "actions": [
+                "{{selenium_sendKeys  '.header-search-input' '美食'}}",
+                "{{selenium_click  '.header-search-btn'}}"
+            ],
+            "forwarders": [
+                {
+                    "condition": "{{hasPrefix ._owner_url 'https://verify.meituan.com'}}",
+                    "processor": "verify"
+                },
+                {
+                    "condition": "{{hasPrefix ._owner_url 'http://www.meituan.com/meishi/'}}",
+                    "processor": "shop_detail"
+                },
+                {
+                    "condition":"{{hasPrefix ._owner_url 'http://wf.meituan.com/s/'}}",
+                    "processor": "shop_list"
+                }
+            ]
+        },
+        {
+            "index": "verify",
+            "actions": [
+                "{{selenium_captureElement '#yodaImgCode' 'imageCode'}}",
+                "{{ocrDecode .imageCode 'ne4' 'imageCodeResult'}}",
+                "{{selenium_sendKeys  '#yodaImgCodeInput' .imageCodeResult}}",
+                "{{selenium_click  '#yodaImgCodeSure'}}"
+            ],
+            "logs": [
+                "authCodeText:{{.imageCodeResult}}"
+            ],
+            "forwarders": [
+                {
+                    "condition": "{{hasPrefix ._owner_url 'https://verify.meituan.com'}}",
+                    "processor": "verify"
+                },
+                {
+                    "condition": "{{hasPrefix ._owner_url 'http://www.meituan.com/meishi/'}}",
+                    "processor": "shop_detail"
+                },
+                {
+                    "condition":"{{hasPrefix ._owner_url 'http://wf.meituan.com/s/'}}",
+                    "processor": "shop_list"
+                }
+            ]
+        },
+        {
+            "index": "shop_list",
+            "forwarders": [{
+                "condition": "{{hasPrefix ._owner_url 'https://verify.meituan.com'}}",
+                "processor": "verify"
+            }],
+            "page_context": {
+                "pageshoplist": {
+                    "_array": "html(div[data-poiid])",
+                    "shopName": "html(a[class='link item-title']) > htmlText",
+                    "shopLink":"html(a[class='link item-title'];href)",
+                    "score":"html(div[class='item-eval-info clearfix'] span:contains('分')) > htmlText",
+                    "totalComment": "html(div[class='item-eval-info clearfix'] span.highlight) > htmlText",
+                    "address": "html(span[class='address ellipsis']) > htmlText",
+                    "avgPrice":"html(span[class='avg-price']) > htmlText"
+                },
+                "nextBtnHref": "html(a[class='right-arrow iconfont icon-btn_right'];href)"
+            },
+            "crawler_request": [
+                {
+                    "_foreach": "pageshoplist",
+                    "url": "https:{{.shopLink}}",
+                    "processor": "shop_detail",
+                    "priority": 2
+                }
+            ],
+            "actions":[
+                "{{selenium_jsclick 'a.right-arrow.iconfont.icon-btn_right'}}"
+            ],
+            "refresh_condition": "{{isNotEmpty .nextBtnHref}}"
+        },
+        {
+            "index": "shop_detail",
+            "forwarders": [
+                {
+                    "condition": "{{hasPrefix ._owner_url 'https://verify.meituan.com'}}",
+                    "processor": "verify"
+                }
+            ],
+            "crawler_data": [{
+                "shopName": "{{.shopName}}",
+                "address": "{{.address}}",
+                "shopLink": "{{.shopLink}}",
+                "score": "{{.score}}",
+                "avgPrice": "{{.avgPrice}}",
+                "phone": "html(div[class='address'] p:contains('电话：')) > htmlText",
+                "businessTime": "html(div[class='address'] p:contains('营业时间：')) > htmlText",
+                "shopTags": "html(div[class='d-left'] ul[class='tags clear'] li) > htmlText",
+                "totalComment": "{{.totalComment}}",
+                "commentTags": "html(div[class='com-cont'] ul[class='tags clear']) > htmlText"
+            }]
+        }
+    ]
+}
